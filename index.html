@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>재활운동 AI 코치</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00e5a0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="재활AI">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --warn: #ff6b35;
+    --text: #f0f4ff;
+    --text-muted: #8896b3;
+    --border: rgba(0,229,160,0.15);
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  /* INSTALL BANNER */
+  #install-banner {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(135deg, #0d2a1b, #0a1f28);
+    border-top: 1px solid var(--accent);
+    padding: 14px 16px calc(14px + var(--safe-bottom));
+    z-index: 999;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #install-banner.show { display: flex; }
+  .install-row { display: flex; align-items: center; gap: 12px; }
+  .install-icon { font-size: 28px; }
+  .install-text { flex: 1; }
+  .install-text strong { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .install-text p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .install-btns { display: flex; gap: 8px; }
+  .install-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .install-btn.primary { background: var(--accent); color: #0a0f1e; }
+  .install-btn.secondary { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%);
+    padding: 16px 20px 0;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 0 20px rgba(0,229,160,0.3);
+    flex-shrink: 0;
+  }
+  .logo-text h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+  .logo-text p { font-size: 11px; color: var(--text-muted); font-weight: 300; margin-top: 2px; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* PAGES */
+  .page { display: none; padding: 20px; padding-bottom: 100px; }
+  .page.active { display: block; }
+
+  .section-title {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px; margin-bottom: 16px;
+    box-shadow: var(--card-shadow);
+  }
+
+  /* BODY PART GRID */
+  .body-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .body-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 8px; text-align: center;
+    cursor: pointer; transition: all 0.2s; color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .body-btn:active { transform: scale(0.96); }
+  .body-btn.selected { border-color: var(--accent); background: rgba(0,229,160,0.08); box-shadow: 0 0 16px rgba(0,229,160,0.2); }
+  .body-btn .emoji { font-size: 28px; display: block; margin-bottom: 6px; }
+  .body-btn .label { font-size: 12px; font-weight: 500; }
+
+  .condition-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+  .cond-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 10px; text-align: left;
+    cursor: pointer; transition: all 0.2s; color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500;
+  }
+  .cond-btn.selected { border-color: var(--accent2); background: rgba(0,153,255,0.08); }
+  .cond-btn .cond-icon { font-size: 18px; margin-bottom: 4px; display: block; }
+
+  .level-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .level-btn {
+    flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; text-align: center; transition: all 0.2s;
+  }
+  .level-btn.selected { background: rgba(255,107,53,0.12); border-color: var(--warn); color: var(--warn); }
+
+  .cta-btn {
+    width: 100%; padding: 16px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0a0f1e; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    letter-spacing: 0.5px; transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(0,229,160,0.3);
+  }
+  .cta-btn:active { transform: scale(0.98); opacity: 0.9; }
+  .cta-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .ai-loading { text-align: center; padding: 40px 20px; }
+  .pulse-ring {
+    width: 60px; height: 60px;
+    border: 3px solid rgba(0,229,160,0.2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-muted); font-size: 14px; }
+
+  .exercise-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px; margin-bottom: 14px;
+    animation: fadeUp 0.4s ease both;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .exercise-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .exercise-num {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: #0a0f1e; flex-shrink: 0;
+  }
+  .exercise-name { font-size: 16px; font-weight: 700; }
+  .exercise-body { font-size: 13px; color: #c8d4ee; line-height: 1.7; }
+  .exercise-body strong { color: var(--accent); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  .tag-time { background: rgba(0,153,255,0.15); color: var(--accent2); }
+  .tag-rep { background: rgba(0,229,160,0.12); color: var(--accent); }
+  .tag-warn { background: rgba(255,107,53,0.12); color: var(--warn); }
+
+  /* TIMER */
+  .timer-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 24px; text-align: center; margin-bottom: 16px;
+  }
+  .timer-display {
+    font-family: 'Bebas Neue', sans-serif; font-size: 72px; letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1; margin-bottom: 4px;
+  }
+  .timer-label { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+  .timer-controls { display: flex; gap: 12px; justify-content: center; }
+  .timer-btn {
+    padding: 12px 28px; border-radius: 12px; border: none;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .timer-btn.start { background: var(--accent); color: #0a0f1e; }
+  .timer-btn.stop { background: rgba(255,107,53,0.2); color: var(--warn); border: 1px solid var(--warn); }
+  .timer-btn.reset { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+
+  .preset-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .preset-btn {
+    flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 12px; cursor: pointer; text-align: center;
+  }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
+
+  .check-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-circle {
+    width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .check-item.done .check-circle { background: var(--accent); border-color: var(--accent); }
+  .check-item.done .check-label { color: var(--text-muted); text-decoration: line-through; }
+  .check-label { font-size: 14px; font-weight: 500; }
+
+  .progress-wrap { margin-bottom: 8px; }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .progress-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.4s ease; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 10px; text-align: center; }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+
+  .warn-box {
+    background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.3);
+    border-radius: 12px; padding: 14px; margin-bottom: 16px;
+    font-size: 13px; color: #ffb49a; line-height: 1.6;
+  }
+  .warn-box .warn-title { font-weight: 700; color: var(--warn); margin-bottom: 6px; font-size: 14px; }
+
+  .info-box {
+    background: rgba(0,153,255,0.08); border: 1px solid rgba(0,153,255,0.25);
+    border-radius: 12px; padding: 14px; margin-bottom: 16px;
+    font-size: 13px; color: #a8d4ff; line-height: 1.6;
+  }
+
+  /* CHAT */
+  .chat-wrap {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 12px 16px calc(12px + var(--safe-bottom));
+    display: flex; gap: 10px; z-index: 200;
+  }
+  .chat-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 14px; color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 14px; outline: none;
+  }
+  .chat-input::placeholder { color: var(--text-muted); }
+  .chat-send {
+    width: 44px; height: 44px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0a0f1e; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .chat-messages { margin-bottom: 80px; }
+  .msg { margin-bottom: 12px; animation: fadeUp 0.3s ease; }
+  .msg-ai .bubble {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px 16px 16px 4px; padding: 12px 16px;
+    font-size: 14px; line-height: 1.7; color: var(--text); max-width: 90%;
+  }
+  .msg-user .bubble {
+    background: linear-gradient(135deg, rgba(0,229,160,0.15), rgba(0,153,255,0.15));
+    border: 1px solid rgba(0,229,160,0.2); border-radius: 16px 16px 4px 16px;
+    padding: 12px 16px; font-size: 14px; line-height: 1.7; color: var(--text);
+    max-width: 90%; margin-left: auto; text-align: right;
+  }
+  .msg-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; padding: 0 4px; }
+  .msg-user .msg-label { text-align: right; }
+
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3);
+    border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700;
+    color: var(--accent); letter-spacing: 1px; margin-bottom: 14px;
+  }
+  .ai-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: blink 1.2s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; color: var(--text-muted);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; cursor: pointer; margin-bottom: 16px;
+  }
+  .result-intro {
+    padding: 16px; background: rgba(0,229,160,0.06); border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 12px; margin-bottom: 16px; font-size: 14px; line-height: 1.7;
+    color: var(--accent); font-weight: 500;
+  }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<!-- PWA 설치 배너 -->
+<div id="install-banner">
+  <div class="install-row">
+    <div class="install-icon">🏃</div>
+    <div class="install-text">
+      <strong>재활운동 AI 코치</strong>
+      <p>홈 화면에 추가하면 앱처럼 사용할 수 있어요!</p>
+    </div>
+  </div>
+  <div class="install-btns">
+    <button class="install-btn primary" onclick="installApp()">📲 설치하기</button>
+    <button class="install-btn secondary" onclick="dismissInstall()">나중에</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo-icon">🏃</div>
+    <div class="logo-text">
+      <h1>REHAB AI COACH</h1>
+      <p>AI 기반 맞춤형 재활운동 안내</p>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showPage('home', this)">🏠 홈</button>
+    <button class="tab-btn" onclick="showPage('exercise', this)">💪 운동 추천</button>
+    <button class="tab-btn" onclick="showPage('timer', this)">⏱ 타이머</button>
+    <button class="tab-btn" onclick="showPage('chat', this)">🤖 AI 상담</button>
+  </div>
+</div>
+
+<!-- PAGE 1: HOME -->
+<div class="page active" id="page-home">
+  <div style="margin-bottom:16px; margin-top:4px;">
+    <div class="ai-badge"><span class="ai-dot"></span> AI POWERED</div>
+    <div style="font-size:22px; font-weight:900; line-height:1.3; margin-bottom:8px;">
+      오늘의 재활운동을<br>AI가 안내해드려요 👋
+    </div>
+    <div style="font-size:14px; color:var(--text-muted); line-height:1.6;">
+      부위와 상태를 선택하면 맞춤형 재활 프로그램을 생성해드립니다.
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="stat-day">0</div><div class="stat-label">운동 일수</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-done">0</div><div class="stat-label">완료 운동</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-min">0</div><div class="stat-label">총 분</div></div>
+  </div>
+
+  <div class="warn-box">
+    <div class="warn-title">⚠️ 주의사항</div>
+    이 앱은 일반적인 재활운동 안내 목적으로 제작되었습니다. 심한 통증이나 급성기 손상의 경우 반드시 전문 의료진과 상담하세요.
+  </div>
+
+  <div class="card">
+    <div class="section-title">빠른 시작</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <button class="body-btn" onclick="quickStart('무릎')" style="text-align:center; border-radius:14px; padding:16px 8px;"><span class="emoji">🦵</span><span class="label">무릎 재활</span></button>
+      <button class="body-btn" onclick="quickStart('어깨')" style="text-align:center; border-radius:14px; padding:16px 8px;"><span class="emoji">💪</span><span class="label">어깨 재활</span></button>
+      <button class="body-btn" onclick="quickStart('허리')" style="text-align:center; border-radius:14px; padding:16px 8px;"><span class="emoji">🔙</span><span class="label">허리 재활</span></button>
+      <button class="body-btn" onclick="quickStart('발목')" style="text-align:center; border-radius:14px; padding:16px 8px;"><span class="emoji">🦶</span><span class="label">발목 재활</span></button>
+    </div>
+  </div>
+
+  <div class="info-box">
+    💡 <strong>사용 방법</strong><br>
+    ① '운동 추천' 탭에서 부위·상태·단계 선택<br>
+    ② AI가 맞춤 운동 프로그램 생성<br>
+    ③ '타이머' 탭으로 운동 시간 관리<br>
+    ④ 'AI 상담'으로 궁금한 점 질문
+  </div>
+</div>
+
+<!-- PAGE 2: EXERCISE -->
+<div class="page" id="page-exercise">
+  <div id="select-screen">
+    <div class="section-title">운동 부위 선택</div>
+    <div class="body-grid">
+      <button class="body-btn" data-part="무릎" onclick="selectPart(this)"><span class="emoji">🦵</span><span class="label">무릎</span></button>
+      <button class="body-btn" data-part="어깨" onclick="selectPart(this)"><span class="emoji">💪</span><span class="label">어깨</span></button>
+      <button class="body-btn" data-part="허리" onclick="selectPart(this)"><span class="emoji">🔙</span><span class="label">허리</span></button>
+      <button class="body-btn" data-part="발목" onclick="selectPart(this)"><span class="emoji">🦶</span><span class="label">발목</span></button>
+      <button class="body-btn" data-part="목/경추" onclick="selectPart(this)"><span class="emoji">🦒</span><span class="label">목/경추</span></button>
+      <button class="body-btn" data-part="손목" onclick="selectPart(this)"><span class="emoji">🤚</span><span class="label">손목</span></button>
+    </div>
+    <div class="section-title">현재 상태</div>
+    <div class="condition-grid">
+      <button class="cond-btn" data-cond="수술 후 초기 회복" onclick="selectCond(this)"><span class="cond-icon">🏥</span>수술 후 초기 회복<br><span style="color:var(--text-muted);font-size:11px;">수술 1~4주</span></button>
+      <button class="cond-btn" data-cond="염좌 또는 타박상" onclick="selectCond(this)"><span class="cond-icon">🤕</span>염좌 / 타박상<br><span style="color:var(--text-muted);font-size:11px;">급성 손상 후</span></button>
+      <button class="cond-btn" data-cond="만성 통증" onclick="selectCond(this)"><span class="cond-icon">😣</span>만성 통증<br><span style="color:var(--text-muted);font-size:11px;">3개월 이상</span></button>
+      <button class="cond-btn" data-cond="근력 강화 필요" onclick="selectCond(this)"><span class="cond-icon">💪</span>근력 강화<br><span style="color:var(--text-muted);font-size:11px;">기능 회복기</span></button>
+    </div>
+    <div class="section-title">운동 단계</div>
+    <div class="level-row">
+      <button class="level-btn" data-level="초급" onclick="selectLevel(this)">🌱<br>초급</button>
+      <button class="level-btn" data-level="중급" onclick="selectLevel(this)">🔥<br>중급</button>
+      <button class="level-btn" data-level="고급" onclick="selectLevel(this)">⚡<br>고급</button>
+    </div>
+    <button class="cta-btn" id="generate-btn" onclick="generateExercise()" disabled>🤖 AI 운동 프로그램 생성하기</button>
+  </div>
+  <div id="result-screen" style="display:none;">
+    <button class="back-btn" onclick="backToSelect()">← 다시 선택</button>
+    <div class="ai-badge"><span class="ai-dot"></span> AI GENERATED</div>
+    <div id="result-area"></div>
+  </div>
+</div>
+
+<!-- PAGE 3: TIMER -->
+<div class="page" id="page-timer">
+  <div class="section-title">운동 타이머</div>
+  <div class="timer-card">
+    <div class="timer-display" id="timer-display">00:00</div>
+    <div class="timer-label" id="timer-label">준비되셨나요?</div>
+    <div class="timer-controls">
+      <button class="timer-btn start" id="start-btn" onclick="toggleTimer()">▶ 시작</button>
+      <button class="timer-btn reset" onclick="resetTimer()">↺ 리셋</button>
+    </div>
+  </div>
+  <div class="section-title">빠른 설정</div>
+  <div class="preset-row">
+    <button class="preset-btn" onclick="setTimer(30)">30초</button>
+    <button class="preset-btn" onclick="setTimer(60)">1분</button>
+    <button class="preset-btn" onclick="setTimer(120)">2분</button>
+    <button class="preset-btn" onclick="setTimer(300)">5분</button>
+  </div>
+  <div class="section-title">오늘의 체크리스트</div>
+  <div class="card" id="checklist-wrap">
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span style="font-size:13px; font-weight:600;">진행도</span>
+        <span style="font-size:13px; color:var(--accent);" id="check-count">0 / 5</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="divider"></div>
+    <div id="checklist"></div>
+  </div>
+</div>
+
+<!-- PAGE 4: AI CHAT -->
+<div class="page" id="page-chat">
+  <div class="section-title">AI 재활 상담사</div>
+  <div class="info-box">재활운동에 관한 궁금한 점을 자유롭게 물어보세요.</div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg msg-ai">
+      <div class="msg-label">🤖 AI 코치</div>
+      <div class="bubble">안녕하세요! 저는 AI 재활 코치입니다 👋<br><br>재활운동에 관한 질문이 있으시면 편하게 물어보세요.<br><br><strong>예시 질문:</strong><br>• 무릎 수술 후 첫 주에 할 수 있는 운동은?<br>• 어깨 통증이 있을 때 피해야 할 동작은?<br>• 재활운동 중 통증이 생기면 어떻게 하나요?</div>
+    </div>
+  </div>
+</div>
+
+<div class="chat-wrap" id="chat-input-wrap" style="display:none;">
+  <input class="chat-input" id="chat-input" type="text" placeholder="재활에 대해 질문하세요..." onkeydown="if(event.key==='Enter') sendChat()">
+  <button class="chat-send" onclick="sendChat()">➤</button>
+</div>
+
+<script>
+// STATE
+let selectedPart = '', selectedCond = '', selectedLevel = '';
+let timerInterval = null, timerSeconds = 0, timerTarget = 0, timerRunning = false;
+let checkItems = ['스트레칭 5분', '주 운동 1세트', '주 운동 2세트', '주 운동 3세트', '마무리 스트레칭'];
+let checkDone = new Array(5).fill(false);
+let deferredPrompt = null;
+
+// PWA INSTALL
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  setTimeout(() => document.getElementById('install-banner').classList.add('show'), 2000);
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+});
+function installApp() {
+  if(deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; dismissInstall(); });
+  } else {
+    // iOS fallback
+    alert('📱 설치 방법:\niOS: 하단 공유버튼 → "홈 화면에 추가"\n안드로이드: 브라우저 메뉴 → "홈 화면에 추가"');
+    dismissInstall();
+  }
+}
+function dismissInstall() { document.getElementById('install-banner').classList.remove('show'); }
+
+// SERVICE WORKER
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded', () => {
+  renderChecklist();
+  document.getElementById('stat-day').textContent = localStorage.getItem('rehab_days') || 0;
+  document.getElementById('stat-done').textContent = localStorage.getItem('rehab_done') || 0;
+  document.getElementById('stat-min').textContent = localStorage.getItem('rehab_min') || 0;
+});
+
+// TABS
+function showPage(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('chat-input-wrap').style.display = (page === 'chat') ? 'flex' : 'none';
+}
+
+// SELECTION
+function selectPart(btn) {
+  document.querySelectorAll('[data-part]').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected'); selectedPart = btn.dataset.part; checkGenBtn();
+}
+function selectCond(btn) {
+  document.querySelectorAll('[data-cond]').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected'); selectedCond = btn.dataset.cond; checkGenBtn();
+}
+function selectLevel(btn) {
+  document.querySelectorAll('[data-level]').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected'); selectedLevel = btn.dataset.level; checkGenBtn();
+}
+function checkGenBtn() {
+  document.getElementById('generate-btn').disabled = !(selectedPart && selectedCond && selectedLevel);
+}
+
+function quickStart(part) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-exercise').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  document.getElementById('chat-input-wrap').style.display = 'none';
+  setTimeout(() => {
+    const btn = document.querySelector(`[data-part="${part}"]`);
+    if(btn) selectPart(btn);
+    const condBtn = document.querySelector('[data-cond="근력 강화 필요"]');
+    if(condBtn) selectCond(condBtn);
+    const lvlBtn = document.querySelector('[data-level="초급"]');
+    if(lvlBtn) selectLevel(lvlBtn);
+  }, 50);
+}
+
+// AI EXERCISE GENERATION
+async function generateExercise() {
+  document.getElementById('select-screen').style.display = 'none';
+  document.getElementById('result-screen').style.display = 'block';
+  document.getElementById('result-area').innerHTML = `<div class="ai-loading"><div class="pulse-ring"></div><div class="loading-text">AI가 맞춤 재활 프로그램을 생성 중...</div></div>`;
+
+  const prompt = `당신은 전문 물리치료사이자 재활 운동 전문가입니다.
+
+다음 정보를 바탕으로 맞춤형 재활운동 프로그램을 한국어로 작성해주세요.
+- 재활 부위: ${selectedPart}
+- 현재 상태: ${selectedCond}
+- 운동 단계: ${selectedLevel}
+
+JSON 형식으로만 응답하세요:
+{"intro":"전체 프로그램 소개(2~3문장, 따뜻하고 친근하게)","warning":"특히 주의해야 할 점(1~2가지 구체적으로)","exercises":[{"name":"운동 이름","description":"운동 방법(구체적이고 단계별로 3~4문장)","sets":"세트 수","reps":"반복 횟수 또는 시간","tip":"핵심 포인트 1문장"}]}
+
+운동은 정확히 4개. 마크다운 없이 순수 JSON만 반환.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const result = JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+    renderExercises(result);
+    let days = parseInt(localStorage.getItem('rehab_days') || '0') + 1;
+    localStorage.setItem('rehab_days', days);
+    document.getElementById('stat-day').textContent = days;
+  } catch(e) {
+    document.getElementById('result-area').innerHTML = `<div class="warn-box"><div class="warn-title">⚠️ 오류</div>AI 연결 실패. 다시 시도해주세요.<br>${e.message}</div><button class="cta-btn" onclick="generateExercise()">다시 시도</button>`;
+  }
+}
+
+function renderExercises(data) {
+  let html = `<div class="result-intro">${data.intro}</div>`;
+  html += `<div class="warn-box"><div class="warn-title">⚠️ 주의사항</div>${data.warning}</div>`;
+  data.exercises.forEach((ex, i) => {
+    html += `<div class="exercise-card" style="animation-delay:${i*0.1}s">
+      <div class="exercise-header"><div class="exercise-num">${i+1}</div><div class="exercise-name">${ex.name}</div></div>
+      <div class="exercise-body">${ex.description}<br><br><strong>💡 핵심 포인트:</strong> ${ex.tip}</div>
+      <div class="tags"><span class="tag tag-rep">📋 ${ex.sets}</span><span class="tag tag-time">🔄 ${ex.reps}</span><span class="tag tag-warn">⚡ ${selectedLevel}</span></div>
+    </div>`;
+  });
+  html += `<button class="cta-btn" onclick="goTimer()" style="margin-top:8px;">⏱ 타이머로 운동 시작</button>`;
+  document.getElementById('result-area').innerHTML = html;
+  let done = parseInt(localStorage.getItem('rehab_done') || '0') + 1;
+  localStorage.setItem('rehab_done', done);
+  document.getElementById('stat-done').textContent = done;
+}
+
+function backToSelect() {
+  document.getElementById('select-screen').style.display = 'block';
+  document.getElementById('result-screen').style.display = 'none';
+}
+function goTimer() {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-timer').classList.add('active');
+  document.querySelectorAll('.tab-btn')[2].classList.add('active');
+  document.getElementById('chat-input-wrap').style.display = 'none';
+  setTimer(30);
+}
+
+// TIMER
+function toggleTimer() {
+  if(timerRunning) {
+    clearInterval(timerInterval); timerRunning = false;
+    document.getElementById('start-btn').textContent = '▶ 재시작';
+    document.getElementById('start-btn').className = 'timer-btn start';
+    document.getElementById('timer-label').textContent = '일시정지됨';
+  } else {
+    timerRunning = true;
+    document.getElementById('start-btn').textContent = '⏸ 일시정지';
+    document.getElementById('start-btn').className = 'timer-btn stop';
+    document.getElementById('timer-label').textContent = '운동 중...';
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      if(timerTarget > 0 && timerSeconds >= timerTarget) {
+        clearInterval(timerInterval); timerRunning = false;
+        document.getElementById('timer-label').textContent = '✅ 완료!';
+        document.getElementById('start-btn').textContent = '▶ 다시';
+        document.getElementById('start-btn').className = 'timer-btn start';
+        let min = parseInt(localStorage.getItem('rehab_min') || '0') + Math.floor(timerTarget/60);
+        localStorage.setItem('rehab_min', min);
+        document.getElementById('stat-min').textContent = min;
+        timerSeconds = 0;
+      }
+      updateTimerDisplay();
+    }, 1000);
+  }
+}
+function resetTimer() {
+  clearInterval(timerInterval); timerRunning = false; timerSeconds = 0;
+  updateTimerDisplay();
+  document.getElementById('timer-label').textContent = '준비되셨나요?';
+  document.getElementById('start-btn').textContent = '▶ 시작';
+  document.getElementById('start-btn').className = 'timer-btn start';
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+function setTimer(sec) {
+  resetTimer(); timerTarget = sec; updateTimerDisplay();
+  document.getElementById('timer-label').textContent = `목표: ${sec >= 60 ? Math.floor(sec/60)+'분' : sec+'초'}`;
+  const idx = [30,60,120,300].indexOf(sec);
+  if(idx>=0) document.querySelectorAll('.preset-btn')[idx].classList.add('active');
+}
+function updateTimerDisplay() {
+  const s = timerTarget > 0 ? timerTarget - timerSeconds : timerSeconds;
+  document.getElementById('timer-display').textContent =
+    `${Math.floor(Math.abs(s)/60).toString().padStart(2,'0')}:${(Math.abs(s)%60).toString().padStart(2,'0')}`;
+}
+
+// CHECKLIST
+function renderChecklist() {
+  document.getElementById('checklist').innerHTML = checkItems.map((item,i) => `
+    <div class="check-item${checkDone[i]?' done':''}" onclick="toggleCheck(${i})">
+      <div class="check-circle">${checkDone[i]?'✓':''}</div>
+      <div class="check-label">${item}</div>
+    </div>`).join('');
+  const count = checkDone.filter(Boolean).length;
+  document.getElementById('check-count').textContent = `${count} / ${checkItems.length}`;
+  document.getElementById('progress-fill').style.width = (count/checkItems.length*100)+'%';
+}
+function toggleCheck(i) { checkDone[i] = !checkDone[i]; renderChecklist(); }
+
+// AI CHAT
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim(); if(!msg) return; input.value = '';
+  appendMsg('user', msg);
+  const loadId = 'load-' + Date.now();
+  document.getElementById('chat-messages').innerHTML += `<div class="msg msg-ai" id="${loadId}"><div class="msg-label">🤖 AI 코치</div><div class="bubble" style="color:var(--text-muted);">답변 생성 중...</div></div>`;
+  scrollChat();
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 1000,
+        messages: [{ role: "user", content: `당신은 친절하고 전문적인 재활 운동 코치입니다. 환자에게 따뜻하고 이해하기 쉽게 답변하세요. 의학적으로 위험한 조언은 피하고, 심각한 증상은 전문의 상담을 권유하세요. 한국어로 답변하세요.\n\n질문: ${msg}` }]
+      })
+    });
+    const data = await res.json();
+    document.getElementById(loadId).querySelector('.bubble').style.color = '';
+    document.getElementById(loadId).querySelector('.bubble').innerHTML = data.content[0].text.replace(/\n/g,'<br>');
+  } catch(e) {
+    document.getElementById(loadId).querySelector('.bubble').innerHTML = '⚠️ 연결 오류. 다시 시도해주세요.';
+  }
+  scrollChat();
+}
+function appendMsg(role, text) {
+  document.getElementById('chat-messages').innerHTML += `<div class="msg msg-${role}"><div class="msg-label">${role==='user'?'👤 나':'🤖 AI 코치'}</div><div class="bubble">${text.replace(/\n/g,'<br>')}</div></div>`;
+  scrollChat();
+}
+function scrollChat() {
+  const w = document.getElementById('chat-messages'); w.scrollTop = w.scrollHeight;
+}
+</script>
+</body>
+</html>
